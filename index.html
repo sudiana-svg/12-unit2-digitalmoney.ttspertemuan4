@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Crossword Puzzle (Teka Teki Silang) - Digital Money Pertemuan 4</title>
+<style>
+  :root{
+    --primary:#1b6fa8;
+    --primary-dark:#0f4f7a;
+    --bg1:#e0f0f7;
+    --bg2:#d0e6f0;
+    --white-cell:#ffffff;
+    --block-cell:#17232f;
+    --border:#2b5a70;
+    --correct:#8fd19e;
+    --wrong:#f6b8b0;
+    --highlight:#fff3b0;
+    --num-color:#0f4f7a;
+    --cell:28px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    height:100%; margin:0; overflow:hidden;
+    font-family:'Poppins','Trebuchet MS',Verdana,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    color:#1a2d3d;
+  }
+  .app{ display:flex; flex-direction:column; height:100dvh; height:100vh; padding:6px 10px; gap:5px; }
+
+  header{
+    display:flex; align-items:center; gap:10px;
+    background:#ffffffcc; border-radius:12px; padding:5px 12px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.1); flex-shrink:0; min-height:40px;
+  }
+  .title-block{ flex-shrink:0; }
+  .title-block h1{ margin:0; font-size:1rem; color:var(--primary-dark); line-height:1.1; font-weight:700; }
+
+  .credit-fixed{
+    flex-shrink:0; font-style:italic; font-weight:700; font-size:0.72rem;
+    color:var(--primary-dark); text-align:right; white-space:nowrap; margin-left:auto;
+  }
+
+  .clue-slot{
+    flex:1; min-width:0; display:flex; align-items:center; justify-content:center; text-align:center;
+    background:#fff3b0; border-radius:10px; padding:4px 10px; font-size:0.75rem; font-weight:600; color:#5a4600;
+    opacity:0; transform:translateY(-4px); transition:opacity 0.15s, transform 0.15s; pointer-events:none;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .clue-slot.show{ opacity:1; transform:translateY(0); }
+
+  .score-badge{ flex-shrink:0; background:#1b6fa8; color:#fff; font-weight:700; font-size:0.7rem; padding:5px 10px; border-radius:18px; box-shadow:0 2px 6px rgba(0,0,0,0.2); white-space:nowrap; }
+  .timer-badge{ flex-shrink:0; background:#f0a500; color:#fff; font-weight:700; font-size:0.7rem; padding:5px 10px; border-radius:18px; box-shadow:0 2px 6px rgba(0,0,0,0.2); white-space:nowrap; transition:background 0.3s; }
+  .timer-badge.expired{ background:#c62828; }
+
+  .icon-btn{
+    flex-shrink:0; width:30px; height:30px; border-radius:50%; border:none;
+    background:#eef5fa; color:var(--primary-dark); font-size:0.95rem;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 2px 5px rgba(0,0,0,0.15); padding:0;
+  }
+  .icon-btn:hover{ background:#dceaf3; }
+
+  .info-bar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:#ffffffaa; border-radius:10px; padding:4px 12px; flex-shrink:0;
+    font-size:0.68rem; color:#3a5a6a;
+  }
+  .info-bar label{ display:flex; align-items:center; gap:4px; }
+  .info-bar input[type=text]{
+    border:1px solid #bcd6e4; border-radius:6px; padding:2px 6px; font-size:0.68rem;
+    width:120px; background:#fff;
+  }
+  .info-bar .toolbar-sep{ flex:1; min-width:6px; }
+  .info-bar .main-btn{ padding:5px 12px; font-size:0.7rem; }
+  .btn-download-game{ background:#d1341c; }
+  .btn-download-game:hover{ background:#a8290f; transform:translateY(-1px); }
+
+  main{ flex:1; min-height:0; display:flex; gap:8px; }
+
+  .grid-wrap{
+    flex:1; min-width:0; min-height:0; display:flex; align-items:center; justify-content:center;
+    background:#ffffffcc; border-radius:14px; box-shadow:0 4px 10px rgba(0,0,0,0.1); overflow:hidden; padding:5px;
+    position:relative;
+  }
+  .generating-msg{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(255,255,255,0.9); font-weight:700; color:var(--primary-dark); font-size:1rem; text-align:center; padding:20px;
+  }
+  .generating-msg.show{ display:flex; }
+
+  #grid{
+    display:grid; grid-template-columns:repeat(var(--cols), var(--cell)); grid-template-rows:repeat(var(--rows), var(--cell));
+    gap:1px; background:var(--border); padding:3px; border-radius:8px;
+  }
+  .cell{ position:relative; background:var(--block-cell); width:var(--cell); height:var(--cell); border-radius:2px; }
+  .cell.white{ background:var(--white-cell); }
+  .cell.white input{
+    width:100%; height:100%; border:none; text-align:center; font-weight:700; text-transform:uppercase;
+    background:transparent; color:#0f2d3d; border-radius:2px; outline:none; padding:0;
+    font-size:calc(var(--cell) * 0.55);
+  }
+  .cell.white input:focus{ background:var(--highlight); }
+  .cell.active-word input{ background:#e8f3f9; }
+  .cell.correct input{ background:var(--correct) !important; color:#0a4d1f; }
+  .cell.wrong input{ background:var(--wrong) !important; color:#7a1a10; }
+  .cell .num{ position:absolute; top:0; left:1px; font-size:calc(var(--cell) * 0.24); color:var(--num-color); font-weight:700; pointer-events:none; line-height:1; }
+  .cell .mark{ position:absolute; bottom:0px; right:1px; font-size:calc(var(--cell) * 0.32); font-weight:900; pointer-events:none; line-height:1; }
+  .cell.correct .mark{ color:#1e7d3a; }
+  .cell.wrong .mark{ color:#c62828; }
+
+  @keyframes wordBlink{ 0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.15; transform:scale(1.5);} }
+  @keyframes cellFlash{ 0%,100%{box-shadow:none;} 50%{box-shadow:0 0 0 2px #2ecc71 inset;} }
+  .cell.word-celebrate{ animation:cellFlash 0.22s ease-in-out 4; }
+  .cell.word-celebrate .mark{ animation:wordBlink 0.22s ease-in-out 4; }
+
+  .panel{ width:min(28vw, 300px); flex-shrink:0; display:flex; flex-direction:column; gap:5px; min-height:0; }
+  .clue-box{ background:#ffffffcc; border-radius:12px; padding:7px 9px; box-shadow:0 3px 8px rgba(0,0,0,0.1); flex:1; min-height:0; display:flex; flex-direction:column; }
+  .clue-box h2{ margin:2px 0 4px; font-size:0.8rem; color:var(--primary-dark); border-bottom:2px dashed var(--primary); padding-bottom:3px; flex-shrink:0; }
+  .clue-list{ overflow-y:auto; flex:1; min-height:0; }
+  .clue{ padding:4px 6px; border-radius:6px; cursor:pointer; margin-bottom:2px; font-size:0.68rem; line-height:1.25; transition:background 0.15s; }
+  .clue:hover{ background:#eaf4fa; }
+  .clue.active{ background:var(--highlight); font-weight:700; }
+  .clue b{ color:var(--primary-dark); margin-right:3px; }
+
+  .actions{ display:flex; gap:7px; justify-content:center; flex-shrink:0; flex-wrap:wrap; }
+  button.main-btn{
+    padding:7px 16px; font-size:0.78rem; font-weight:700; color:#fff; border:none; border-radius:22px; cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,0.18); transition:transform 0.1s, background 0.2s;
+  }
+  .btn-check{ background:var(--primary); }
+  .btn-check:hover{ background:var(--primary-dark); transform:translateY(-1px); }
+  .btn-reset{ background:#7f8f9c; }
+  .btn-reset:hover{ background:#5f6f7a; transform:translateY(-1px); }
+  .btn-key{ background:#8e44ad; }
+  .btn-key:hover{ background:#6f3488; transform:translateY(-1px); }
+  .btn-template{ background:#2e8b57; }
+  .btn-template:hover{ background:#216b41; transform:translateY(-1px); }
+  .btn-upload{ background:#c0790a; }
+  .btn-upload:hover{ background:#995f08; transform:translateY(-1px); }
+
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:50; }
+  .overlay.show{ display:flex; }
+  .modal{ background:#fff; border-radius:16px; padding:22px 26px; text-align:center; max-width:340px; max-height:80vh; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,0.3); }
+  .modal h2{ color:var(--primary-dark); margin-top:0; font-size:1.15rem; }
+  .modal p{ color:#2f5a6f; font-size:0.85rem; }
+  .modal button{ margin-top:8px; padding:8px 20px; border-radius:20px; background:var(--primary); color:#fff; font-weight:700; border:none; cursor:pointer; }
+  .modal input[type=password]{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid #bcd6e4; font-size:0.9rem; margin-top:6px; }
+  .modal .err{ color:#c62828; font-size:0.78rem; margin-top:4px; min-height:16px; }
+  .key-list{ text-align:left; font-size:0.78rem; margin-top:10px; }
+  .key-list h3{ font-size:0.85rem; color:var(--primary-dark); border-bottom:1px dashed var(--primary); padding-bottom:2px; margin-bottom:4px; }
+  .key-list div{ padding:2px 0; }
+
+  @media (max-width:800px){
+    main{ flex-direction:column; }
+    .panel{ width:100%; flex-direction:row; max-height:32vh; }
+    .info-bar{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="title-block">
+      <h1>📝 Crossword Puzzle (Teka Teki Silang)</h1>
+    </div>
+    <div class="clue-slot" id="clueSlot"></div>
+    <div class="score-badge" id="scoreBadge">🏆 Skor: 0 / 0 · Nilai: 0</div>
+    <div class="timer-badge" id="timerBadge">⏱ 20:00</div>
+    <button class="icon-btn" id="musicToggle" onclick="toggleBackgroundMusic()" title="Musik latar">🔇</button>
+    <span class="credit-fixed">Dibuat oleh: I Wayan Sudiana</span>
+  </header>
+
+  <div class="info-bar">
+    <span>Materi: <b>Digital Money Pertemuan 4</b></span>
+    <span>Unit: <b>Unit 2</b></span>
+    <span>Kelas: <b>XII</b></span>
+    <span>Guru: <b>I Wayan Sudiana</b></span>
+    <span>Sekolah: <b>SMAN 2 Bangli</b></span>
+  </div>
+
+  <main>
+    <div class="grid-wrap" id="gridWrap">
+      <div id="grid"></div>
+      <div class="generating-msg" id="generatingMsg">⏳ Menyiapkan soal baru...</div>
+    </div>
+    <div class="panel">
+      <div class="clue-box">
+        <h2>➡️ Across</h2>
+        <div class="clue-list" id="acrossList"></div>
+      </div>
+      <div class="clue-box">
+        <h2>⬇️ Down</h2>
+        <div class="clue-list" id="downList"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="actions">
+    <button class="main-btn btn-check" onclick="checkAnswers()">✅ Cek Jawaban</button>
+    <button class="main-btn btn-reset" onclick="startNewRound()">🔄 Main Lagi (Soal Baru)</button>
+    <button class="main-btn btn-key" onclick="openKeyModal()">🔑 Kunci Jawaban (Guru)</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>🎉 Selamat! 🎉</h2>
+    <p>Kamu berhasil menyelesaikan Teka-Teki Silang<br>Digital Money Pertemuan 4!</p>
+    <button onclick="document.getElementById('overlay').classList.remove('show')">Tutup</button>
+  </div>
+</div>
+
+<div class="overlay" id="keyOverlay">
+  <div class="modal">
+    <h2>🔑 Kunci Jawaban Guru</h2>
+    <div id="keyPasswordStep">
+      <p>Masukkan password untuk membuka kunci jawaban.</p>
+      <input type="password" id="keyPasswordInput" placeholder="Password">
+      <div class="err" id="keyError"></div>
+      <button onclick="submitKeyPassword()">Buka</button>
+    </div>
+    <div id="keyAnswerStep" style="display:none;">
+      <div class="key-list" id="keyList"></div>
+    </div>
+    <button onclick="closeKeyModal()" style="background:#7f8f9c;">Tutup</button>
+  </div>
+</div>
+<script>
+
+// ========================================================================
+// KONFIGURASI
+// ========================================================================
+const TEACHER_PASSWORD = "SUDI2026";
+const TIME_LIMIT_MS = 20 * 60 * 1000; // 20 menit (direvisi dari 30 menit)
+
+// ========================================================================
+// BANK SOAL (Digital Money, Kelas XII) - kumpulan jawaban+klu TANPA koordinat.
+// Setiap kali game dimulai / tombol "Main Lagi" ditekan, sistem mengambil
+// 16-17 soal ACAK dari bank ini lalu membangun grid TTS baru secara otomatis.
+// Guru disarankan menyiapkan 40-50 soal (lewat Upload Soal) agar 3x permainan
+// berturut-turut mendapat kombinasi soal & grid yang berbeda-beda.
+// ========================================================================
+/* === WORD_BANK_START === */
+let WORD_BANK = [{"answer":"MULTIMODAL","clue":"Text with words and pictures"},{"answer":"FACT","clue":"True information in text"},{"answer":"INFERENCE","clue":"A smart guess from evidence"},{"answer":"PHISHING","clue":"Fake link to steal data"},{"answer":"FRAUD","clue":"Criminal trick to get money"},{"answer":"PRIVACY","clue":"Protection of personal data"},{"answer":"IMPULSIVE","clue":"Unplanned or fast buying"},{"answer":"SECURE","clue":"Safe from danger or risks"},{"answer":"EVIDENCE","clue":"Proof taken from the text"},{"answer":"INFOGRAPHIC","clue":"Visual text with icons and data"},{"answer":"PERCENTAGE","clue":"Number out of 100 like 20%"},{"answer":"STATISTICS","clue":"Data like 1 in 5 users"},{"answer":"PADLOCK","clue":"Icon for security risk"},{"answer":"DOCUMENT","clue":"Icon for privacy policy"},{"answer":"NETWORK","clue":"Public wifi or internet system"},{"answer":"COULD","clue":"Modal verb for possibility"},{"answer":"MIGHT","clue":"Modal verb for careful guess"},{"answer":"MAXIMUM","clue":"The meaning of up to"},{"answer":"SUGGESTS","clue":"Verb meaning points to"},{"answer":"FEE","clue":"Extra charge for payment"},{"answer":"WALLET","clue":"Digital app to store money"},{"answer":"BANKING","clue":"Mobile app to transfer money"},{"answer":"CURRENCY","clue":"Digital coins like bitcoin"},{"answer":"TEENAGER","clue":"A young person in the survey"},{"answer":"OVERSPENDING","clue":"Spending too much money"},{"answer":"TWENTY","clue":"Percentage for 1 in 5"},{"answer":"FORTY","clue":"Percentage for 4 in 10"},{"answer":"NINETY","clue":"Number of teens afraid of links"},{"answer":"THIRTY","clue":"The peak percentage of fast buying"},{"answer":"FOOTPRINTS","clue":"Only thing allowed to leave"}];
+/* === WORD_BANK_END === */
+const ROUND_SIZE_MIN = 16, ROUND_SIZE_MAX = 17;
+
+// ========================================================================
+// STATE GLOBAL (akan di-reset tiap kali initGame dipanggil)
+// ========================================================================
+let words = [];
+let ROWS = 0, COLS = 0;
+let grid = [];
+let inputsMap = {};
+let totalCells = 0;
+let maxScore = 0;
+let earnedPoints = {};
+let completedWords = new Set();
+let startTime = Date.now();
+let currentDirPreference = 'across';
+
+const gridEl = document.getElementById('grid');
+const gridWrap = document.getElementById('gridWrap');
+const acrossList = document.getElementById('acrossList');
+const downList = document.getElementById('downList');
+const clueSlot = document.getElementById('clueSlot');
+
+// ========================================================================
+// INIT GAME: membangun seluruh papan dari sebuah set soal (words, rows, cols)
+// ========================================================================
+function initGame(newWords, newRows, newCols){
+  words = newWords;
+  ROWS = newRows; COLS = newCols;
+  document.documentElement.style.setProperty('--rows', ROWS);
+  document.documentElement.style.setProperty('--cols', COLS);
+
+  grid = [];
+  for(let r=0;r<ROWS;r++) grid.push(new Array(COLS).fill(null));
+  words.forEach(w=>{
+    for(let i=0;i<w.answer.length;i++){
+      const r = w.dir==='down' ? w.row+i : w.row;
+      const c = w.dir==='across' ? w.col+i : w.col;
+      if(!grid[r][c]) grid[r][c] = { letter:w.answer[i], wordIds:[], number:null };
+      grid[r][c].wordIds.push({id:w.num, dir:w.dir, index:i});
+    }
+    if(!grid[w.row][w.col].number) grid[w.row][w.col].number = w.num;
+  });
+
+  gridEl.innerHTML = '';
+  inputsMap = {};
+
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cellData = grid[r][c];
+      const cellDiv = document.createElement('div');
+      cellDiv.classList.add('cell');
+      if(cellData){
+        cellDiv.classList.add('white');
+        cellDiv.dataset.row = r; cellDiv.dataset.col = c;
+
+        if(cellData.number){
+          const num = document.createElement('span');
+          num.classList.add('num'); num.textContent = cellData.number;
+          cellDiv.appendChild(num);
+        }
+        const mark = document.createElement('span');
+        mark.classList.add('mark');
+        cellDiv.appendChild(mark);
+
+        const input = document.createElement('input');
+        input.maxLength = 1; input.autocomplete = 'off';
+        input.dataset.row = r; input.dataset.col = c;
+        cellDiv.appendChild(input);
+        inputsMap[r+'-'+c] = input;
+
+        input.addEventListener('input', (e)=>{
+          const val = e.target.value.replace(/[^a-zA-Z]/g,'').toUpperCase();
+          e.target.value = val;
+          cellDiv.classList.remove('correct','wrong');
+          mark.textContent = '';
+          if(val){
+            if(val === cellData.letter){
+              cellDiv.classList.add('correct'); mark.textContent = '✓'; playCorrect();
+            } else {
+              cellDiv.classList.add('wrong'); mark.textContent = '✗'; playWrong();
+            }
+            moveToNextCell(r,c);
+            checkWordCompletion(r,c);
+            checkAutoComplete();
+          }
+          updateScore();
+        });
+
+        input.addEventListener('keydown', (e)=>{
+          if(e.key === 'Backspace' && !e.target.value) moveToPrevCell(r,c);
+          else if(e.key === 'ArrowRight'){ focusCell(r,c+1); }
+          else if(e.key === 'ArrowLeft'){ focusCell(r,c-1); }
+          else if(e.key === 'ArrowDown'){ focusCell(r+1,c); }
+          else if(e.key === 'ArrowUp'){ focusCell(r-1,c); }
+        });
+
+        input.addEventListener('focus', ()=>{ highlightActiveWord(r,c); showCluePopup(r,c); });
+        input.addEventListener('blur', ()=>{
+          setTimeout(()=>{
+            if(!document.activeElement || document.activeElement.tagName !== 'INPUT') hideCluePopup();
+          }, 30);
+        });
+      }
+      gridEl.appendChild(cellDiv);
+    }
+  }
+
+  // panel soal
+  acrossList.innerHTML = ''; downList.innerHTML = '';
+  words.filter(w=>w.dir==='across').sort((a,b)=>a.num-b.num).forEach(w=>{
+    const div = document.createElement('div');
+    div.classList.add('clue'); div.dataset.num = w.num; div.dataset.dir = 'across';
+    div.innerHTML = `<b>${w.num}.</b>${w.clue} (${w.answer.length})`;
+    div.addEventListener('click', ()=>{
+      currentDirPreference = 'across'; focusCell(w.row, w.col);
+      highlightActiveWord(w.row, w.col); showCluePopup(w.row, w.col);
+    });
+    acrossList.appendChild(div);
+  });
+  words.filter(w=>w.dir==='down').sort((a,b)=>a.num-b.num).forEach(w=>{
+    const div = document.createElement('div');
+    div.classList.add('clue'); div.dataset.num = w.num; div.dataset.dir = 'down';
+    div.innerHTML = `<b>${w.num}.</b>${w.clue} (${w.answer.length})`;
+    div.addEventListener('click', ()=>{
+      currentDirPreference = 'down'; focusCell(w.row, w.col);
+      highlightActiveWord(w.row, w.col); showCluePopup(w.row, w.col);
+    });
+    downList.appendChild(div);
+  });
+
+  // skor & waktu
+  totalCells = 0;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(grid[r][c]) totalCells++;
+  maxScore = totalCells * 2;
+  earnedPoints = {};
+  completedWords = new Set();
+  startTime = Date.now();
+  currentDirPreference = 'across';
+  hideCluePopup();
+  updateTimerDisplay();
+  updateScore();
+  computeAndApplyCellSize();
+}
+
+// ========================================================================
+// NAVIGASI & HIGHLIGHT
+// ========================================================================
+function focusCell(r,c){ const inp = inputsMap[r+'-'+c]; if(inp) inp.focus(); }
+
+function getWordAt(r,c,preferDir){
+  const cellData = grid[r][c];
+  let entry = cellData.wordIds.find(w=>w.dir===preferDir) || cellData.wordIds[0];
+  return {entry, word: words.find(x=>x.num===entry.id && x.dir===entry.dir)};
+}
+
+function moveToNextCell(r,c){
+  const {entry, word} = getWordAt(r,c,currentDirPreference);
+  let nextIndex = entry.index+1;
+  while(nextIndex < word.answer.length){
+    const nr = word.dir==='down' ? word.row+nextIndex : word.row;
+    const nc = word.dir==='across' ? word.col+nextIndex : word.col;
+    const inp = inputsMap[nr+'-'+nc];
+    if(inp && !inp.value){ focusCell(nr,nc); return; }
+    nextIndex++;
+  }
+}
+
+function moveToPrevCell(r,c){
+  const {entry, word} = getWordAt(r,c,currentDirPreference);
+  const prevIndex = entry.index-1;
+  if(prevIndex >= 0){
+    const pr = word.dir==='down' ? word.row+prevIndex : word.row;
+    const pc = word.dir==='across' ? word.col+prevIndex : word.col;
+    focusCell(pr,pc);
+  }
+}
+
+function clearHighlights(){
+  document.querySelectorAll('.cell.active-word').forEach(el=>el.classList.remove('active-word'));
+  document.querySelectorAll('.clue.active').forEach(el=>el.classList.remove('active'));
+}
+
+function highlightActiveWord(r,c){
+  clearHighlights();
+  const {entry, word} = getWordAt(r,c,currentDirPreference);
+  currentDirPreference = entry.dir;
+  for(let i=0;i<word.answer.length;i++){
+    const rr = word.dir==='down' ? word.row+i : word.row;
+    const cc = word.dir==='across' ? word.col+i : word.col;
+    const el = inputsMap[rr+'-'+cc];
+    if(el) el.parentElement.classList.add('active-word');
+  }
+  const clueEl = document.querySelector(`.clue[data-num="${word.num}"][data-dir="${word.dir}"]`);
+  if(clueEl) clueEl.classList.add('active');
+}
+
+function showCluePopup(r,c){
+  const {word} = getWordAt(r,c,currentDirPreference);
+  clueSlot.textContent = `${word.num}. ${word.clue}`;
+  clueSlot.classList.add('show');
+}
+function hideCluePopup(){ clueSlot.classList.remove('show'); }
+
+// ========================================================================
+// SUARA (Web Audio API, tanpa file eksternal)
+// ========================================================================
+let audioCtx = null;
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playTone(freq, duration, type){
+  try{
+    const ctx = getCtx();
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = type || 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.16, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + duration);
+  }catch(e){}
+}
+function playCorrect(){ playTone(880,0.13,'sine'); setTimeout(()=>playTone(1175,0.15,'sine'), 90); }
+function playWrong(){ playTone(160,0.25,'square'); }
+function playCelebrate(){ [523,659,784,1046].forEach((f,i)=> setTimeout(()=>playTone(f,0.2,'sine'), i*130)); }
+function playJingle(){
+  const notes = [1568,1976,2349,3136,2349];
+  notes.forEach((f,i)=> setTimeout(()=>playTone(f,0.16,'triangle'), i*70));
+}
+
+function unlockAudio(){
+  try{
+    const ctx = getCtx();
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer; src.connect(ctx.destination); src.start(0);
+  }catch(e){}
+  startBackgroundMusic();
+}
+['pointerdown','touchstart','click','keydown'].forEach(evt=>{
+  document.addEventListener(evt, unlockAudio, {once:true, passive:true});
+});
+
+// Musik latar: loop 5 nada melodi sederhana (disintesis, bukan file eksternal)
+const bgMelody = [523.25, 587.33, 659.25, 783.99, 659.25]; // C5 D5 E5 G5 E5
+let bgMusicOn = false;
+let bgNoteIndex = 0;
+let bgTimer = null;
+
+function scheduleNextNote(){
+  if(!bgMusicOn) return;
+  const f = bgMelody[bgNoteIndex % bgMelody.length];
+  playAmbientNote(f, 0.9, 0.03);
+  bgNoteIndex++;
+  bgTimer = setTimeout(scheduleNextNote, 950);
+}
+function playAmbientNote(freq, duration, volume){
+  try{
+    const ctx = getCtx();
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.25);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + duration + 0.1);
+  }catch(e){}
+}
+function startBackgroundMusic(){ if(bgMusicOn) return; bgMusicOn = true; scheduleNextNote(); updateMusicButton(); }
+function stopBackgroundMusic(){ bgMusicOn = false; clearTimeout(bgTimer); updateMusicButton(); }
+function toggleBackgroundMusic(){ bgMusicOn ? stopBackgroundMusic() : startBackgroundMusic(); }
+function updateMusicButton(){ const b=document.getElementById('musicToggle'); if(b) b.textContent = bgMusicOn?'🔊':'🔇'; }
+
+// ========================================================================
+// DETEKSI KATA SELESAI (gemerincing + kedip hijau bersamaan)
+// ========================================================================
+function wordKey(w){ return w.num + '-' + w.dir; }
+function checkWordCompletion(r,c){
+  const cellData = grid[r][c];
+  cellData.wordIds.forEach(entry=>{
+    const w = words.find(x=>x.num===entry.id && x.dir===entry.dir);
+    const key = wordKey(w);
+    if(completedWords.has(key)) return;
+    let complete = true;
+    for(let i=0;i<w.answer.length;i++){
+      const rr = w.dir==='down' ? w.row+i : w.row;
+      const cc = w.dir==='across' ? w.col+i : w.col;
+      const inp = inputsMap[rr+'-'+cc];
+      if(!inp || inp.value.toUpperCase() !== grid[rr][cc].letter){ complete = false; break; }
+    }
+    if(complete){ completedWords.add(key); celebrateWord(w); }
+  });
+}
+function celebrateWord(w){
+  playJingle();
+  const cells = [];
+  for(let i=0;i<w.answer.length;i++){
+    const rr = w.dir==='down' ? w.row+i : w.row;
+    const cc = w.dir==='across' ? w.col+i : w.col;
+    const el = inputsMap[rr+'-'+cc];
+    if(el){ el.parentElement.classList.add('word-celebrate'); cells.push(el.parentElement); }
+  }
+  setTimeout(()=> cells.forEach(el=>el.classList.remove('word-celebrate')), 950);
+}
+
+// ========================================================================
+// SKOR & BATAS WAKTU (2 poin/huruf ≤30 menit, 1 poin/huruf >30 menit, terkunci per sel)
+// ========================================================================
+function currentRate(){ return (Date.now() - startTime) < TIME_LIMIT_MS ? 2 : 1; }
+
+function updateScore(){
+  let score = 0;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cellData = grid[r][c];
+      if(!cellData) continue;
+      const key = r+'-'+c;
+      const inp = inputsMap[key];
+      const isCorrect = inp && inp.value.toUpperCase() === cellData.letter;
+      if(isCorrect){ if(!earnedPoints[key]) earnedPoints[key] = currentRate(); }
+      else { earnedPoints[key] = 0; }
+      score += earnedPoints[key] || 0;
+    }
+  }
+  const nilai = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+  const badge = document.getElementById('scoreBadge');
+  if(badge) badge.textContent = `🏆 Skor: ${score} / ${maxScore} · Nilai: ${nilai}`;
+}
+
+function updateTimerDisplay(){
+  const remainingMs = TIME_LIMIT_MS - (Date.now() - startTime);
+  const timerBadge = document.getElementById('timerBadge');
+  if(!timerBadge) return;
+  if(remainingMs <= 0){
+    timerBadge.textContent = '⏱ 00:00 (1 poin/huruf)';
+    timerBadge.classList.add('expired');
+    return;
+  }
+  const totalSec = Math.ceil(remainingMs / 1000);
+  const mm = String(Math.floor(totalSec / 60)).padStart(2,'0');
+  const ss = String(totalSec % 60).padStart(2,'0');
+  timerBadge.textContent = `⏱ ${mm}:${ss}`;
+  timerBadge.classList.remove('expired');
+}
+setInterval(updateTimerDisplay, 1000);
+
+// ========================================================================
+// CEK JAWABAN & RESET
+// ========================================================================
+function fullCheck(showMark){
+  let allFilled = true, allCorrect = true;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cellData = grid[r][c];
+      if(!cellData) continue;
+      const input = inputsMap[r+'-'+c];
+      const cellDiv = input.parentElement;
+      const mark = cellDiv.querySelector('.mark');
+      const userVal = input.value.toUpperCase();
+      if(!userVal){ allFilled = false; continue; }
+      if(userVal === cellData.letter){
+        if(showMark){ cellDiv.classList.remove('wrong'); cellDiv.classList.add('correct'); mark.textContent='✓'; }
+      } else {
+        allCorrect = false;
+        if(showMark){ cellDiv.classList.remove('correct'); cellDiv.classList.add('wrong'); mark.textContent='✗'; }
+      }
+    }
+  }
+  return allFilled && allCorrect;
+}
+function checkAnswers(){
+  if(fullCheck(true)){ playCelebrate(); document.getElementById('overlay').classList.add('show'); }
+}
+function checkAutoComplete(){
+  if(fullCheck(false)){ playCelebrate(); document.getElementById('overlay').classList.add('show'); }
+}
+// (Reset sekarang ditangani oleh startNewRound() - lihat bagian RONDE BARU di bawah,
+// yang membangun grid & soal baru sekaligus, bukan hanya mengosongkan kotak.)
+
+// ========================================================================
+// RESPONSIVE: ubah --cell via CSS variable, DOM tidak dibangun ulang saat resize
+// ========================================================================
+function computeAndApplyCellSize(){
+  const availW = gridWrap.clientWidth - 14;
+  const availH = gridWrap.clientHeight - 14;
+  let size = Math.floor(Math.min(availW / COLS, availH / ROWS));
+  size = Math.max(9, size);
+  document.documentElement.style.setProperty('--cell', size + 'px');
+}
+window.addEventListener('resize', ()=>{
+  clearTimeout(window._rsz);
+  window._rsz = setTimeout(computeAndApplyCellSize, 150);
+});
+
+// ========================================================================
+// KUNCI JAWABAN (password: SUDI2026)
+// ========================================================================
+function openKeyModal(){
+  document.getElementById('keyOverlay').classList.add('show');
+  document.getElementById('keyPasswordStep').style.display = 'block';
+  document.getElementById('keyAnswerStep').style.display = 'none';
+  document.getElementById('keyPasswordInput').value = '';
+  document.getElementById('keyError').textContent = '';
+}
+function closeKeyModal(){ document.getElementById('keyOverlay').classList.remove('show'); }
+function submitKeyPassword(){
+  const val = document.getElementById('keyPasswordInput').value;
+  if(val === TEACHER_PASSWORD){
+    const keyList = document.getElementById('keyList');
+    const across = words.filter(w=>w.dir==='across').sort((a,b)=>a.num-b.num);
+    const down = words.filter(w=>w.dir==='down').sort((a,b)=>a.num-b.num);
+    let html = '<h3>➡️ Across</h3>';
+    across.forEach(w=> html += `<div><b>${w.num}.</b> ${w.answer}</div>`);
+    html += '<h3>⬇️ Down</h3>';
+    down.forEach(w=> html += `<div><b>${w.num}.</b> ${w.answer}</div>`);
+    keyList.innerHTML = html;
+    document.getElementById('keyPasswordStep').style.display = 'none';
+    document.getElementById('keyAnswerStep').style.display = 'block';
+  } else {
+    document.getElementById('keyError').textContent = 'Password salah. Coba lagi.';
+  }
+}
+
+// ========================================================================
+// GENERATOR CROSSWORD OTOMATIS (JS, fungsi BERSAMA - dipakai Builder & Game)
+// ========================================================================
+function tryBuildCrossword(wordsInput){
+  const size = 30;
+
+  function attempt(strict){
+    let g = Array.from({length:size}, ()=> new Array(size).fill(null));
+    let placements = [];
+
+    function canPlace(word,row,col,dir){
+      const len = word.length;
+      if(dir==='across'){ if(col<0||col+len>size||row<0||row>=size) return false; }
+      else{ if(row<0||row+len>size||col<0||col>=size) return false; }
+      let hasInt=false;
+      for(let i=0;i<len;i++){
+        const r = dir==='down'? row+i: row;
+        const c = dir==='across'? col+i: col;
+        const cell = g[r][c];
+        if(cell!==null){
+          if(cell!==word[i]) return false;
+          hasInt=true;
+        } else if(strict){
+          if(dir==='across'){
+            if(r>0 && g[r-1][c]!==null) return false;
+            if(r<size-1 && g[r+1][c]!==null) return false;
+          } else {
+            if(c>0 && g[r][c-1]!==null) return false;
+            if(c<size-1 && g[r][c+1]!==null) return false;
+          }
+        }
+      }
+      if(strict){
+        if(dir==='across'){
+          if(col-1>=0 && g[row][col-1]!==null) return false;
+          if(col+len<size && g[row][col+len]!==null) return false;
+        } else {
+          if(row-1>=0 && g[row-1][col]!==null) return false;
+          if(row+len<size && g[row+len][col]!==null) return false;
+        }
+      }
+      return hasInt || placements.length===0;
+    }
+    function place(word,row,col,dir){
+      for(let i=0;i<word.length;i++){
+        const r = dir==='down'? row+i: row;
+        const c = dir==='across'? col+i: col;
+        g[r][c]=word[i];
+      }
+      placements.push({word,row,col,dir});
+    }
+
+    const sorted = [...wordsInput].sort((a,b)=>b.answer.length-a.answer.length);
+    place(sorted[0].answer, Math.floor(size/2), Math.floor(size/2), 'across');
+    const remaining = sorted.slice(1);
+    const unplaced = [];
+
+    for(const wObj of remaining){
+      const word = wObj.answer;
+      const candidates = [];
+      for(let r=0;r<size;r++){
+        for(let c=0;c<size;c++){
+          if(g[r][c]===null) continue;
+          const ch = g[r][c];
+          for(let i=0;i<word.length;i++){
+            if(word[i]===ch){
+              for(const dir of ['down','across']){
+                const row = dir==='down'? r-i : r;
+                const col = dir==='across'? c-i : c;
+                if(canPlace(word,row,col,dir)) candidates.push({row,col,dir});
+              }
+            }
+          }
+        }
+      }
+      if(candidates.length===0){ unplaced.push(wObj); continue; }
+      const pick = candidates[Math.floor(Math.random()*candidates.length)];
+      place(word, pick.row, pick.col, pick.dir);
+    }
+    return {placements, unplaced};
+  }
+
+  function area(placements){
+    let minr=Infinity,maxr=-Infinity,minc=Infinity,maxc=-Infinity;
+    placements.forEach(p=>{
+      const endR = p.dir==='down'? p.row+p.word.length-1 : p.row;
+      const endC = p.dir==='across'? p.col+p.word.length-1 : p.col;
+      minr=Math.min(minr,p.row); maxr=Math.max(maxr,endR);
+      minc=Math.min(minc,p.col); maxc=Math.max(maxc,endC);
+    });
+    return (maxr-minr+1)*(maxc-minc+1);
+  }
+
+  let best = null;
+  let deadline = Date.now() + 700;
+  while(Date.now() < deadline){
+    const res = attempt(true);
+    if(res.unplaced.length === 0){
+      const a = area(res.placements);
+      if(!best || a < best.area) best = {placements: res.placements, area: a};
+      if(best.area < 450) break;
+    }
+  }
+  if(!best){
+    deadline = Date.now() + 700;
+    while(Date.now() < deadline){
+      const res = attempt(false);
+      if(res.unplaced.length === 0){
+        const a = area(res.placements);
+        if(!best || a < best.area) best = {placements: res.placements, area: a};
+        if(best.area < 450) break;
+      }
+    }
+  }
+  if(!best){
+    let fallback = attempt(false);
+    for(let i=0;i<30;i++){
+      const res = attempt(false);
+      if(res.unplaced.length < fallback.unplaced.length) fallback = res;
+    }
+    if(fallback.placements.length === 0) return null;
+    let maxRowUsed = Math.max(...fallback.placements.map(p=> p.dir==='down'? p.row+p.word.length-1 : p.row));
+    let nextRow = maxRowUsed + 2;
+    fallback.unplaced.forEach(w=>{
+      fallback.placements.push({word:w.answer, row:nextRow, col:0, dir:'across'});
+      nextRow += 2;
+    });
+    best = {placements: fallback.placements};
+  }
+
+  // normalisasi & penomoran
+  const clueMap = {};
+  wordsInput.forEach(w=> clueMap[w.answer] = w.clue);
+
+  let minr=Infinity, minc=Infinity;
+  best.placements.forEach(p=>{ minr=Math.min(minr,p.row); minc=Math.min(minc,p.col); });
+  const norm = best.placements.map(p=>({...p, row:p.row-minr, col:p.col-minc}));
+
+  const startsMap = {};
+  norm.forEach(p=>{
+    const key = p.row+'-'+p.col;
+    if(!startsMap[key]) startsMap[key] = [];
+    startsMap[key].push(p);
+  });
+  const keys = Object.keys(startsMap).map(k=>k.split('-').map(Number)).sort((a,b)=> a[0]-b[0] || a[1]-b[1]);
+  let num = 1;
+  const finalWords = [];
+  keys.forEach(([r,c])=>{
+    startsMap[r+'-'+c].forEach(p=>{
+      finalWords.push({ num, dir:p.dir, row:r, col:c, answer:p.word, clue: clueMap[p.word] || '' });
+    });
+    num++;
+  });
+  let maxr=0, maxc=0;
+  finalWords.forEach(w=>{
+    const endR = w.dir==='down'? w.row+w.answer.length-1 : w.row;
+    const endC = w.dir==='across'? w.col+w.answer.length-1 : w.col;
+    maxr = Math.max(maxr, endR); maxc = Math.max(maxc, endC);
+  });
+
+  return { words: finalWords, rows: maxr+1, cols: maxc+1 };
+}
+
+// ========================================================================
+// RONDE BARU: ambil 16-17 soal ACAK dari WORD_BANK, buat grid baru (fungsi BERSAMA)
+// ========================================================================
+function shuffleArray(arr){
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function pickRound(bank){
+  const size = Math.min(bank.length, Math.random() < 0.5 ? ROUND_SIZE_MIN : ROUND_SIZE_MAX);
+  return shuffleArray(bank).slice(0, size);
+}
+function startNewRound(){
+  const msg = document.getElementById('generatingMsg');
+  if(msg) msg.classList.add('show');
+  setTimeout(()=>{
+    const subset = pickRound(WORD_BANK);
+    const result = tryBuildCrossword(subset);
+    if(msg) msg.classList.remove('show');
+    if(!result){
+      alert('Gagal membuat grid TTS baru. Mencoba lagi dengan kombinasi soal lain...');
+      setTimeout(startNewRound, 50);
+      return;
+    }
+    initGame(result.words, result.rows, result.cols);
+  }, 40);
+}
+
+
+
+// ========================================================================
+// START (mode Game Builder - memuat soal default untuk diedit/diunggah ulang)
+// ========================================================================
+startNewRound();
+window.addEventListener('load', computeAndApplyCellSize);
+
+</script>
+</body>
+</html>
